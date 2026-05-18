@@ -37,7 +37,24 @@ let nodePty = null
 try {
   nodePty = require('@homebridge/node-pty-prebuilt-multiarch')
 } catch {
-  nodePty = null
+  // Packaged builds set `files:` in package.json, which excludes node_modules
+  // from the asar.  Workspace dedup also hoists this native dep to the repo
+  // root's node_modules, out of reach of electron-builder's collector.  We
+  // ship a minimal copy under resources/native-deps/ via extraResources +
+  // scripts/stage-native-deps.cjs; resolve from there when the normal
+  // require() fails.  Dev mode never reaches this branch -- the hoisted
+  // resolve succeeds via Node's normal module lookup.
+  try {
+    const path = require('node:path')
+    const resourcesPath = process.resourcesPath
+    if (resourcesPath) {
+      nodePty = require(
+        path.join(resourcesPath, 'native-deps', '@homebridge', 'node-pty-prebuilt-multiarch')
+      )
+    }
+  } catch {
+    nodePty = null
+  }
 }
 
 const USER_DATA_OVERRIDE = process.env.HERMES_DESKTOP_USER_DATA_DIR
